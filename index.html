@@ -1,61 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Restaurant Menu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Restaurant Menu - Debug</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .item {
-      background: #ffffff;
-      padding: 15px;
-      margin-bottom: 12px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 18px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin:0; padding:20px; }
+    h1 { text-align:center; margin-bottom:18px; }
+    .status { color:#333; margin:8px 0; }
+    .item { background:#fff; padding:12px; margin:10px 0; border-radius:8px;
+           display:flex; justify-content:space-between; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+    .error { color: #b00020; }
+    .small { font-size:13px; color:#666; margin-top:6px; }
   </style>
 </head>
-
 <body>
+  <h1>🍽️ Menu</h1>
 
-<h1>🍽️ Menu</h1>
-<div id="menu">Loading menu...</div>
+  <!-- status area -->
+  <div id="status" class="status">Loading menu...</div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  <!-- where items will be inserted -->
+  <div id="menu"></div>
 
-  // 🔥 Firebase Config (tumhara)
-  const firebaseConfig = {
-    apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
-    authDomain: "restaurant-55333.firebaseapp.com",
-    projectId: "restaurant-55333",
-    storageBucket: "restaurant-55333.firebasestorage.app",
-    messagingSenderId: "279347685173",
-    appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
-  };
+  <!-- QUICK NON-MODULE TEST: This confirms basic JS runs on page (will run on any browser) -->
+  <script>
+    // This should immediately replace the "Loading menu..." text with "Basic JS OK"
+    // If you DO NOT see "Basic JS OK" then HTML/JS isn't loading at all.
+    try {
+      document.getElementById('status').innerText = 'Basic JS OK — now loading Firebase SDK...';
+      console.log('Basic JS OK');
+    } catch (e) {
+      console.error('Basic JS error', e);
+      document.getElementById('status').innerText = 'Basic JS failed: ' + (e.message || e);
+    }
+  </script>
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  <!-- MODULE: Firebase + Firestore (debug-friendly, uses async function) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-  const menuDiv = document.getElementById("menu");
-  menuDiv.innerHTML = "";
+    (async function loadMenu(){
+      const status = document.getElementById('status');
+      const menuDiv = document.getElementById('menu');
 
-  try {
-    const snapshot = await getDocs(collection(db, "menu"));
+      // show progress
+      status.innerText = 'Initializing Firebase...';
+      console.log('Initializing Firebase');
 
-    if (snapshot.empty) {
-      menu
+      try {
+        // ---- YOUR FIREBASE CONFIG: keep unchanged ----
+        const firebaseConfig = {
+          apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+          authDomain: "restaurant-55333.firebaseapp.com",
+          projectId: "restaurant-55333",
+          storageBucket: "restaurant-55333.firebasestorage.app",
+          messagingSenderId: "279347685173",
+          appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
+        };
+        // -----------------------------------------------
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        status.innerText = 'Firebase initialized. Fetching menu...';
+        console.log('Firebase initialized, getting docs');
+
+        // fetch collection "menu" (case-sensitive)
+        const snapshot = await getDocs(collection(db, "menu"));
+
+        console.log('Snapshot object:', snapshot);
+        status.innerText = 'Fetched menu — snapshot size: ' + snapshot.size;
+        menuDiv.innerHTML = ''; // clear loading text
+
+        // show snapshot count clearly (debug)
+        const info = document.createElement('div');
+        info.className = 'small';
+        info.innerText = 'Debug: snapshot.size = ' + snapshot.size;
+        menuDiv.appendChild(info);
+
+        if (snapshot.size === 0) {
+          const p = document.createElement('div');
+          p.className = 'status';
+          p.innerText = 'No items found in collection "menu". (Check Firestore collection name and documents)';
+          menuDiv.appendChild(p);
+          console.warn('Snapshot empty — check collection name and rules');
+          return;
+        }
+
+        // render each document
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          console.log('Doc:', doc.id, data);
+
+          const el = document.createElement('div');
+          el.className = 'item';
+          const name = document.createElement('span');
+          name.innerText = data.name || '(no name)';
+          const price = document.createElement('strong');
+          price.innerText = data.price !== undefined ? '₹' + data.price : '—';
+
+          el.appendChild(name);
+          el.appendChild(price);
+          menuDiv.appendChild(el);
+        });
+
+        status.innerText = 'Menu loaded successfully.';
+
+      } catch (err) {
+        console.error('Error in loadMenu:', err);
+        status.innerHTML = '<span class="error">Error loading menu: </span>' + (err && err.message ? err.message : String(err));
+        // also print helpful hints
+        const h = document.createElement('div');
+        h.className = 'small';
+        h.innerText = 'Hints: 1) Ensure Firestore collection name is "menu" (lowercase). 2) Firestore rules allow read. 3) Wait 30s after commit and open in Incognito.';
+        menuDiv.appendChild(h);
+      }
+    })();
+  </script>
+</body>
+</html>
