@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kitchen Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+
+<h2>🍳 Kitchen Orders</h2>
+<div id="orders">Loading...</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    onSnapshot,
+    doc,
+    updateDoc
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+  // 🔥 SAME FIREBASE CONFIG
+  const firebaseConfig = {
+    apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+    authDomain: "restaurant-55333.firebaseapp.com",
+    projectId: "restaurant-55333",
+    storageBucket: "restaurant-55333.firebasestorage.app",
+    messagingSenderId: "279347685173",
+    appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const ordersDiv = document.getElementById("orders");
+
+  // 🔥 REALTIME LISTENER (NO FILTER, NO ORDERBY)
+  onSnapshot(collection(db, "orders"), (snapshot) => {
+    ordersDiv.innerHTML = "";
+
+    if (snapshot.empty) {
+      ordersDiv.innerHTML = "<p>No orders yet</p>";
+      return;
+    }
+
+    snapshot.forEach((docSnap) => {
+      const o = docSnap.data();
+
+      ordersDiv.innerHTML += `
+        <div style="border:1px solid black; padding:10px; margin:10px">
+          <b>Name:</b> ${o.customerName}<br>
+          <b>Table:</b> ${o.tableNumber}<br>
+          <b>Items:</b> ${o.items.map(i => i.name).join(", ")}<br>
+          <b>Status:</b> ${o.status}<br><br>
+
+          <button onclick="setStatus('${docSnap.id}','preparing',10)">
+            Preparing (10 min)
+          </button>
+
+          <button onclick="setStatus('${docSnap.id}','ready',0)">
+            Ready
+          </button>
+        </div>
+      `;
+    });
+  });
+
+  // 🔄 UPDATE STATUS
+  window.setStatus = async (id, status, time) => {
+    await updateDoc(doc(db, "orders", id), {
+      status: status,
+      readyTime: time
+    });
+  };
+</script>
+
+</body>
+</html>
