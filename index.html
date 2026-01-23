@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Restaurant Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h2 {
+      margin-top: 25px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 5px;
+      text-transform: capitalize;
+    }
+    .item {
+      background: #fff;
+      padding: 14px;
+      margin: 10px 0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 17px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    }
+    .item.not-available {
+      opacity: 0.5;
+    }
+    .price {
+      font-weight: bold;
+    }
+    .tag {
+      font-size: 12px;
+      color: red;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🍽️ Menu</h1>
+  <div id="menu">Loading menu...</div>
+
+  <!-- 🔥 FIREBASE SCRIPT -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // 🔴 FIREBASE CONFIG (ALREADY CORRECT)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+      authDomain: "restaurant-55333.firebaseapp.com",
+      projectId: "restaurant-55333",
+      storageBucket: "restaurant-55333.appspot.com",
+      messagingSenderId: "279347685173",
+      appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const menuDiv = document.getElementById("menu");
+
+    async function loadMenu() {
+      try {
+        const snapshot = await getDocs(collection(db, "menu"));
+
+        if (snapshot.empty) {
+          menuDiv.innerHTML = "No menu items found";
+          return;
+        }
+
+        let categories = {};
+
+        snapshot.forEach(doc => {
+          const item = doc.data();
+
+          if (!categories[item.category]) {
+            categories[item.category] = [];
+          }
+          categories[item.category].push(item);
+        });
+
+        menuDiv.innerHTML = "";
+
+        for (const category in categories) {
+          menuDiv.innerHTML += `<h2>${category}</h2>`;
+
+          categories[category].forEach(item => {
+            menuDiv.innerHTML += `
+              <div class="item ${item.available ? "" : "not-available"}">
+                <span>
+                  ${item.name}
+                  ${item.available ? "" : '<span class="tag">(Not Available)</span>'}
+                </span>
+                <span class="price">₹${item.price}</span>
+              </div>
+            `;
+          });
+        }
+
+      } catch (error) {
+        menuDiv.innerHTML = "Error loading menu ❌<br>" + error.message;
+        console.error(error);
+      }
+    }
+
+    loadMenu();
+  </script>
+
+</body>
+</html>
