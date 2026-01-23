@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Admin Panel</h2>
+<button onclick="logout()">Logout</button>
+
+<hr>
+
+<h3>Add Menu Item</h3>
+<input id="iname" placeholder="Item Name">
+<input id="iprice" type="number" placeholder="Price">
+<button onclick="addItem()">Add</button>
+
+<hr>
+
+<h3>Menu List</h3>
+<div id="menu"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// 🔒 Protect admin page
+onAuthStateChanged(auth, user => {
+  if (!user) window.location.href = "login.html";
+});
+
+const menuDiv = document.getElementById("menu");
+
+// 🔹 Load menu
+onSnapshot(collection(db, "menu"), snap => {
+  menuDiv.innerHTML = "";
+  snap.forEach(d => {
+    const i = d.data();
+    menuDiv.innerHTML += `
+      <div>
+        ${i.name} ₹${i.price}
+        <button onclick="toggle('${d.id}',${i.available})">
+          ${i.available ? "Disable" : "Enable"}
+        </button>
+      </div>
+    `;
+  });
+});
+
+// 🔹 Add menu item
+window.addItem = async () => {
+  await addDoc(collection(db, "menu"), {
+    name: iname.value,
+    price: Number(iprice.value),
+    available: true
+  });
+  iname.value = "";
+  iprice.value = "";
+};
+
+// 🔹 Enable / Disable
+window.toggle = async (id, current) => {
+  await updateDoc(doc(db, "menu", id), {
+    available: !current
+  });
+};
+
+// 🔹 Logout
+window.logout = async () => {
+  await signOut(auth);
+  window.location.href = "login.html";
+};
+</script>
+
+</body>
+</html>

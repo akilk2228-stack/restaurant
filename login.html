@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Admin Login</h2>
+
+<input id="email" placeholder="Email"><br><br>
+<input id="password" type="password" placeholder="Password"><br><br>
+
+<button onclick="login()">Login</button>
+<p id="msg"></p>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.login = async () => {
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      email.value,
+      password.value
+    );
+    window.location.href = "admin.html";
+  } catch (e) {
+    msg.innerText = "❌ Login Failed";
+  }
+};
+</script>
+
+</body>
+</html>
