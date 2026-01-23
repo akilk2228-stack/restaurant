@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kitchen Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+
+<h2>🍳 Kitchen Orders</h2>
+<div id="orders">Loading...</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const ordersDiv = document.getElementById("orders");
+
+function formatItems(items) {
+  if (!items) return "—";
+
+  // Old format: string
+  if (typeof items === "string") return items;
+
+  // New format: array
+  if (Array.isArray(items)) {
+    return items.map(i => {
+      if (typeof i === "string") return i;
+      if (typeof i === "object") return i.name || "Item";
+      return "";
+    }).join(", ");
+  }
+
+  return "—";
+}
+
+onSnapshot(collection(db, "orders"), (snapshot) => {
+  ordersDiv.innerHTML = "";
+
+  if (snapshot.empty) {
+    ordersDiv.innerHTML = "<p>No orders yet</p>";
+    return;
+  }
+
+  snapshot.forEach((docSnap) => {
+    const o = docSnap.data();
+
+    ordersDiv.innerHTML += `
+      <div style="border:1px solid #000; padding:10px; margin:10px">
+        <b>Name:</b> ${o.customerName || "-"}<br>
+        <b>Table:</b> ${o.tableNumber ?? "-"}<br>
+        <b>Items:</b> ${formatItems(o.items)}<br>
+        <b>Status:</b> ${o.status || "pending"}<br><br>
+
+        <button onclick="setStatus('${docSnap.id}','preparing',10)">
+          Preparing (10 min)
+        </button>
+
+        <button onclick="setStatus('${docSnap.id}','ready',0)">
+          Ready
+        </button>
+      </div>
+    `;
+  });
+});
+
+window.setStatus = async (id, status, time) => {
+  await updateDoc(doc(db, "orders", id), {
+    status: status,
+    readyTime: time
+  });
+};
+</script>
+
+</body>
+</html>
