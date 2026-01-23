@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Restaurant Menu</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 30px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      background: #fff;
+      margin: 8px 0;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .not-available {
+      color: red;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    .price {
+      font-weight: bold;
+    }
+
+    .loading {
+      text-align: center;
+      color: gray;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🍽 Menu</h1>
+<div id="menu"></div>
+<p class="loading" id="loading">Loading menu...</p>
+
+<script>
+  /* 🔹 FIREBASE CONFIG (APNA HI HAI) */
+  const firebaseConfig = {
+    apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+    authDomain: "restaurant-55333.firebaseapp.com",
+    projectId: "restaurant-55333",
+    storageBucket: "restaurant-55333.firebasestorage.app",
+    messagingSenderId: "279347685173",
+    appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const menuDiv = document.getElementById("menu");
+  const loadingText = document.getElementById("loading");
+
+  const categories = {};
+
+  console.log("🔥 Firebase connected");
+
+  db.collection("menu").get()
+    .then(snapshot => {
+      console.log("📦 Total documents:", snapshot.size);
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+
+        /* 🔍 DEBUG LOG (IMPORTANT) */
+        console.log("---- ITEM DEBUG ----");
+        console.log("Name:", data.name);
+        console.log("Price value:", data.price);
+        console.log("Price typeof:", typeof data.price);
+        console.log("Available:", data.available);
+        console.log("--------------------");
+
+        const category = data.category || "Others";
+
+        if (!categories[category]) {
+          categories[category] = [];
+        }
+
+        categories[category].push(data);
+      });
+
+      renderMenu();
+    })
+    .catch(err => {
+      console.error("❌ Firestore error:", err);
+      loadingText.textContent = "Error loading menu";
+    });
+
+  function renderMenu() {
+    loadingText.style.display = "none";
+
+    for (const category in categories) {
+      const heading = document.createElement("h2");
+      heading.textContent = category;
+      menuDiv.appendChild(heading);
+
+      categories[category].forEach(item => {
+        const row = document.createElement("div");
+        row.className = "item";
+
+        const left = document.createElement("div");
+        left.textContent = item.name;
+
+        if (!item.available) {
+          const na = document.createElement("span");
+          na.className = "not-available";
+          na.textContent = "(Not Available)";
+          left.appendChild(na);
+        }
+
+        const right = document.createElement("div");
+        right.className = "price";
+
+        /* ✅ FINAL PRICE LOGIC (NO BUG) */
+        right.textContent = "₹" + (item.price ?? "--");
+
+        row.appendChild(left);
+        row.appendChild(right);
+        menuDiv.appendChild(row);
+      });
+    }
+  }
+</script>
+
+</body>
+</html>
