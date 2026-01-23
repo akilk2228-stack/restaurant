@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Place Order</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+
+<h2>Place Order</h2>
+
+<p>Table No: <b id="tableNo"></b></p>
+
+<input id="name" placeholder="Customer Name"><br><br>
+
+<h3>Menu</h3>
+<div id="menu">Loading menu...</div><br>
+
+<button onclick="placeOrder()">Place Order</button>
+<p id="msg"></p>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    addDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+  //  FIREBASE CONFIG (AS IS)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+    authDomain: "restaurant-55333.firebaseapp.com",
+    projectId: "restaurant-55333",
+    storageBucket: "restaurant-55333.firebasestorage.app",
+    messagingSenderId: "279347685173",
+    appId: "1:279347685173:web:cb1a120e25e3adb856ce7c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  //  TABLE AUTO-DETECT FROM QR
+  const params = new URLSearchParams(window.location.search);
+  const tableNumber = params.get("table");
+
+  document.getElementById("tableNo").innerText = tableNumber ?? "N/A";
+
+  //  LOAD MENU (AVAILABLE / NOT AVAILABLE FIXED)
+  const menuDiv = document.getElementById("menu");
+  menuDiv.innerHTML = "";
+
+  const snapshot = await getDocs(collection(db, "menu"));
+
+  snapshot.forEach(doc => {
+    const i = doc.data();
+
+    const disabled = i.available === false ? "disabled" : "";
+    const note = i.available === false ? "(Not Available)" : "";
+
+    menuDiv.innerHTML += `
+      <label>
+        <input type="checkbox" value="${i.name}|${i.price}" ${disabled}>
+        ${i.name} - ${i.price} ${note}
+      </label><br>
+    `;
+  });
+
+  //  PLACE ORDER
+  window.placeOrder = async () => {
+    const name = document.getElementById("name").value.trim();
+    const checked = [...document.querySelectorAll("input[type=checkbox]:checked")];
+
+    if (!name) {
+      alert("Please enter your name");
+      return;
+    }
+
+    if (checked.length === 0) {
+      alert("Please select at least one available item");
+      return;
+    }
+
+    const items = checked.map(c => {
+      const [iname, price] = c.value.split("|");
+      return { name: iname, price: Number(price) };
+    });
+
+    try {
+      const docRef = await addDoc(collection(db, "orders"), {
+        customerName: name,
+        tableNumber: Number(tableNumber),
+        items: items,
+        status: "pending",
+        readyTime: null,
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById("msg").innerText = " Order Placed Successfully";
+
+      //  Redirect to status page
+      window.location.href = `status.html?orderId=${docRef.id}`;
+
+    } catch (err) {
+      console.error(err);
+      alert("Error placing order");
+    }
+  };
+</script>
+
+</body>
+</html>
