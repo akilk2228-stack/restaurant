@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+    }
+    .header {
+      background: #e23744;
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .container {
+      padding: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .total {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #e23744;
+      color: #fff;
+      border: none;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">Cozy Food Cafe</div>
+
+<div class="container">
+
+  <div class="card">
+    <div class="row"><b>Customer</b><span id="cname">—</span></div>
+    <div class="row"><b>Table</b><span id="table">—</span></div>
+    <div class="row"><b>Status</b><span id="status">—</span></div>
+  </div>
+
+  <div class="card">
+    <b>Items</b>
+    <div id="items"></div>
+    <hr>
+
+    <div class="row"><span>Subtotal</span><span id="subtotal">₹0</span></div>
+    <div class="row"><span>GST (5%)</span><span id="gst">₹0</span></div>
+    <div class="row"><span>Service Charge (5%)</span><span id="service">₹0</span></div>
+
+    <hr>
+    <div class="row total"><span>Total</span><span id="total">₹0</span></div>
+  </div>
+
+  <button onclick="window.print()">Print / Save Bill</button>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const orderId = new URLSearchParams(location.search).get("orderId");
+const snap = await getDoc(doc(db,"orders",orderId));
+if (!snap.exists()) return;
+
+const o = snap.data();
+
+cname.innerText = o.customerName;
+table.innerText = o.tableNumber;
+status.innerText = o.status.toUpperCase();
+
+let subtotal = 0;
+items.innerHTML = o.items.map(i=>{
+  subtotal += i.price;
+  return `<div class="row"><span>${i.name}</span><span>₹${i.price}</span></div>`;
+}).join("");
+
+const gst = Math.round(subtotal * 0.05);
+const service = Math.round(subtotal * 0.05);
+const total = subtotal + gst + service;
+
+subtotalEl.innerText = `₹${subtotal}`;
+gstEl.innerText = `₹${gst}`;
+serviceEl.innerText = `₹${service}`;
+totalEl.innerText = `₹${total}`;
+
+document.getElementById("subtotal").innerText = `₹${subtotal}`;
+document.getElementById("gst").innerText = `₹${gst}`;
+document.getElementById("service").innerText = `₹${service}`;
+document.getElementById("total").innerText = `₹${total}`;
+</script>
+
+</body>
+</html>

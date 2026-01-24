@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Order Status</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#e23744">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: #f5f5f5;
+    }
+
+    .header {
+      background: #e23744;
+      color: #fff;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+
+    .status {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .pending {
+      color: #ff9800;
+    }
+
+    .preparing {
+      color: #2196f3;
+    }
+
+    .ready {
+      color: #4caf50;
+    }
+
+    .info {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+
+    .items {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .bill-btn {
+      background: #e23744;
+      color: #fff;
+      border: none;
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">Order Tracking</div>
+
+<div class="container">
+
+  <div class="card">
+    <div id="statusText" class="status pending">Pending</div>
+    <div id="timeText" class="info">Waiting for kitchen…</div>
+  </div>
+
+  <div class="card">
+    <div class="info"><b>Customer:</b> <span id="cname">—</span></div>
+    <div class="info"><b>Table:</b> <span id="table">—</span></div>
+    <div class="items" id="items">Loading items…</div>
+  </div>
+
+  <button id="billBtn" class="bill-btn" onclick="openBill()">Download Bill</button>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const params = new URLSearchParams(window.location.search);
+const orderId = params.get("orderId");
+
+const statusText = document.getElementById("statusText");
+const timeText = document.getElementById("timeText");
+const itemsDiv = document.getElementById("items");
+const billBtn = document.getElementById("billBtn");
+
+onSnapshot(doc(db, "orders", orderId), (snap) => {
+  if (!snap.exists()) return;
+
+  const o = snap.data();
+
+  document.getElementById("cname").innerText = o.customerName;
+  document.getElementById("table").innerText = o.tableNumber;
+
+  itemsDiv.innerHTML = o.items.map(i => `• ${i.name} ₹${i.price}`).join("<br>");
+
+  statusText.className = "status " + o.status;
+  statusText.innerText = o.status.toUpperCase();
+
+  if (o.status === "pending") {
+    timeText.innerText = "Order received. Waiting for kitchen.";
+  }
+
+  if (o.status === "preparing") {
+    timeText.innerText = `Preparing… Ready in ${o.readyTime || "few"} min`;
+  }
+
+  if (o.status === "ready") {
+    timeText.innerText = "Order ready. Please collect.";
+    billBtn.style.display = "block";
+  }
+});
+
+window.openBill = () => {
+  window.location.href = `bill.html?orderId=${orderId}`;
+};
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>

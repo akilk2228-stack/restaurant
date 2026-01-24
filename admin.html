@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body{
+      margin:0;
+      font-family:Poppins,sans-serif;
+      background:#f5f5f5;
+    }
+    .header{
+      background:#e23744;
+      color:#fff;
+      padding:16px;
+      font-size:20px;
+      font-weight:600;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .container{padding:16px}
+    .card{
+      background:#fff;
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:14px;
+      box-shadow:0 6px 16px rgba(0,0,0,.08)
+    }
+    h3{margin-top:0}
+    input,select{
+      width:100%;
+      padding:10px;
+      margin-bottom:10px;
+      border-radius:8px;
+      border:1px solid #ddd;
+    }
+    button{
+      background:#e23744;
+      color:#fff;
+      border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      font-size:14px;
+      cursor:pointer;
+    }
+    .danger{background:#d32f2f}
+    .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:6px;
+      font-size:14px;
+    }
+    .small{font-size:13px;color:#666}
+    @media print{
+      .no-print{display:none}
+      body{background:#fff}
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <div>🧑‍💼 Admin Dashboard</div>
+  <button class="no-print" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+
+  <!-- TODAY SALES -->
+  <div class="card">
+    <h3>📊 Today Sales</h3>
+    <div class="row"><span>Total Orders</span><b id="todayOrders">0</b></div>
+    <div class="row"><span>Total Sale</span><b>₹<span id="todaySale">0</span></b></div>
+    <button class="no-print" onclick="window.print()">⬇️ Download PDF</button>
+  </div>
+
+  <!-- USER MANAGEMENT -->
+  <div class="card no-print">
+    <h3>👤 Add Staff</h3>
+    <input id="uEmail" placeholder="Email">
+    <input id="uPassword" type="password" placeholder="Password">
+    <select id="uRole">
+      <option value="kitchen">Kitchen</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button onclick="createUser()">Create User</button>
+    <p id="userMsg" class="small"></p>
+  </div>
+
+  <!-- MENU -->
+  <div class="card no-print">
+    <h3>🍽 Menu</h3>
+    <div id="menu">Loading…</div>
+  </div>
+
+  <!-- ORDERS -->
+  <div class="card">
+    <h3>📜 Orders</h3>
+    <div id="orders">Loading…</div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore, collection, onSnapshot, doc,
+  updateDoc, getDoc, deleteDoc,
+  query, orderBy, setDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged,
+  signOut, createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain:"restaurant-55333.firebaseapp.com",
+  projectId:"restaurant-55333"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+
+const menuDiv=document.getElementById("menu");
+const ordersDiv=document.getElementById("orders");
+const todayOrdersEl=document.getElementById("todayOrders");
+const todaySaleEl=document.getElementById("todaySale");
+
+/* ADMIN GUARD */
+onAuthStateChanged(auth,async u=>{
+  if(!u){location.replace("login.html");return}
+  const s=await getDoc(doc(db,"users",u.uid));
+  if(!s.exists()||s.data().role!=="admin"){alert("Admin only");signOut(auth);return}
+  loadMenu(); loadOrders();
+});
+
+/* CREATE USER */
+window.createUser=async()=>{
+  try{
+    const r=await createUserWithEmailAndPassword(auth,uEmail.value,uPassword.value);
+    await setDoc(doc(db,"users",r.user.uid),{email:uEmail.value,role:uRole.value});
+    userMsg.innerText="✅ User created";
+    uEmail.value=uPassword.value="";
+  }catch(e){userMsg.innerText=e.message}
+};
+
+/* MENU */
+function loadMenu(){
+  onSnapshot(collection(db,"menu"),snap=>{
+    menuDiv.innerHTML="";
+    snap.forEach(d=>{
+      const m=d.data();
+      menuDiv.innerHTML+=`
+        <div class="row">
+          <b>${m.name}</b>
+          <button class="danger" onclick="deleteItem('${d.id}')">Delete</button>
+        </div>
+        <div class="row small">
+          ₹ <input type="number" value="${m.price}"
+            onchange="updatePrice('${d.id}',this.value)">
+          <label>
+            <input type="checkbox" ${m.available!==false?"checked":""}
+              onchange="toggleItem('${d.id}',this.checked)"> Available
+          </label>
+        </div><hr>`;
+    });
+  });
+}
+window.updatePrice=(id,p)=>updateDoc(doc(db,"menu",id),{price:+p});
+window.toggleItem=(id,v)=>updateDoc(doc(db,"menu",id),{available:v});
+window.deleteItem=id=>confirm("Delete item?")&&deleteDoc(doc(db,"menu",id));
+
+/* ORDERS + SALES */
+function loadOrders(){
+  const q=query(collection(db,"orders"),orderBy("createdAt","desc"));
+  onSnapshot(q,snap=>{
+    ordersDiv.innerHTML="";
+    let c=0,t=0;
+    const today=new Date().toDateString();
+    snap.forEach(d=>{
+      const o=d.data();
+      const sum=o.items.reduce((s,i)=>s+i.price,0);
+      if(o.createdAt?.toDate().toDateString()===today){c++;t+=sum}
+      ordersDiv.innerHTML+=`
+        <div class="row">
+          <span>${o.customerName} • T${o.tableNumber}</span>
+          <b>₹${sum}</b>
+        </div>
+        <div class="small">${o.status}</div>
+        <button onclick="openBill('${d.id}')">🧾 Bill</button><hr>`;
+    });
+    todayOrdersEl.innerText=c;
+    todaySaleEl.innerText=t;
+  });
+}
+window.openBill=id=>window.open(`bill.html?orderId=${id}`,"_blank");
+window.logout=()=>signOut(auth).then(()=>location.replace("login.html"));
+</script>
+
+</body>
+</html>

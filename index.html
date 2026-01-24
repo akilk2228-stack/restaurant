@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>cozy food cafe</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#e23744">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: #f5f5f5;
+    }
+
+    .header {
+      background: #e23744;
+      color: white;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .container {
+      padding: 15px;
+      padding-bottom: 100px;
+    }
+
+    .food-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 12px;
+    }
+
+    .food-img {
+      width: 90px;
+      height: 90px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #eee;
+    }
+
+    .food-info {
+      flex: 1;
+    }
+
+    .food-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .food-desc {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 6px;
+    }
+
+    .food-price {
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .add-btn {
+      background: #e23744;
+      color: #fff;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+
+    .qty-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .qty-btn {
+      background: #e23744;
+      color: #fff;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      font-size: 16px;
+    }
+
+    .not-available {
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #e23744;
+      color: #fff;
+      padding: 14px;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+    }
+
+    .bottom-bar button {
+      background: #fff;
+      color: #e23744;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">cozy food cafe</div>
+
+<div class="container">
+
+  <div class="food-card">
+    <div class="food-info">
+      <b>Table:</b> <span id="tableNo"></span>
+    </div>
+  </div>
+
+  <input id="name" placeholder="Enter your name">
+
+  <div id="menu">Loading menu...</div>
+
+</div>
+
+<div class="bottom-bar" id="cartBar">
+  <span id="cartText">0 items | ₹0</span>
+  <button onclick="placeOrder()">Place Order</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain: "restaurant-55333.firebaseapp.com",
+  projectId: "restaurant-55333"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const params = new URLSearchParams(window.location.search);
+const tableNumber = params.get("table") || 1;
+document.getElementById("tableNo").innerText = tableNumber;
+
+const menuDiv = document.getElementById("menu");
+const cartBar = document.getElementById("cartBar");
+const cartText = document.getElementById("cartText");
+
+let cart = {};
+
+const snap = await getDocs(collection(db, "menu"));
+menuDiv.innerHTML = "";
+
+snap.forEach(doc => {
+  const i = doc.data();
+  const id = doc.id;
+
+  const img =
+    i.image ||
+    "https://images.unsplash.com/photo-1600891964599-f61ba0e24092";
+
+  const desc =
+    i.description ||
+    "Delicious freshly prepared item";
+
+  menuDiv.innerHTML += `
+    <div class="food-card" id="item-${id}">
+      <img src="${img}" class="food-img">
+      <div class="food-info">
+        <div class="food-name">${i.name}</div>
+        <div class="food-desc">${desc}</div>
+        <div class="food-price">₹${i.price}</div>
+        ${
+          i.available === false
+          ? `<div class="not-available">Not Available</div>`
+          : `<button class="add-btn" onclick="addItem('${id}','${i.name}',${i.price})">ADD</button>`
+        }
+      </div>
+    </div>
+  `;
+});
+
+window.addItem = (id, name, price) => {
+  cart[id] = { name, price, qty: 1 };
+  renderQty(id);
+  updateCart();
+};
+
+window.inc = id => {
+  cart[id].qty++;
+  renderQty(id);
+  updateCart();
+};
+
+window.dec = id => {
+  cart[id].qty--;
+  if (cart[id].qty <= 0) {
+    delete cart[id];
+    document.querySelector(`#item-${id} .qty-box`).outerHTML =
+      `<button class="add-btn" onclick="addItem('${id}','${cart[id]?.name}',${cart[id]?.price})">ADD</button>`;
+  }
+  renderQty(id);
+  updateCart();
+};
+
+function renderQty(id) {
+  const el = document.querySelector(`#item-${id} .food-info`);
+  if (!el || !cart[id]) return;
+
+  el.querySelector(".add-btn")?.remove();
+  el.querySelector(".qty-box")?.remove();
+
+  el.innerHTML += `
+    <div class="qty-box">
+      <button class="qty-btn" onclick="dec('${id}')">-</button>
+      ${cart[id].qty}
+      <button class="qty-btn" onclick="inc('${id}')">+</button>
+    </div>
+  `;
+}
+
+function updateCart() {
+  let totalQty = 0;
+  let total = 0;
+
+  Object.values(cart).forEach(i => {
+    totalQty += i.qty;
+    total += i.qty * i.price;
+  });
+
+  if (totalQty > 0) {
+    cartBar.style.display = "flex";
+    cartText.innerText = `${totalQty} items | ₹${total}`;
+  } else {
+    cartBar.style.display = "none";
+  }
+}
+
+window.placeOrder = async () => {
+  const name = document.getElementById("name").value.trim();
+  if (!name) {
+    alert("Enter your name");
+    return;
+  }
+
+  const items = Object.values(cart).flatMap(i =>
+    Array(i.qty).fill({ name: i.name, price: i.price })
+  );
+
+  const ref = await addDoc(collection(db, "orders"), {
+    customerName: name,
+    tableNumber: Number(tableNumber),
+    items,
+    status: "pending",
+    createdAt: serverTimestamp()
+  });
+
+  window.location.href = `status.html?orderId=${ref.id}`;
+};
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>

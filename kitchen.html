@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kitchen Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body{
+      margin:0;
+      font-family:Poppins,sans-serif;
+      background:#f5f5f5;
+    }
+    .header{
+      background:#e23744;
+      color:#fff;
+      padding:14px;
+      font-size:20px;
+      font-weight:600;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .container{padding:12px}
+    .section-title{
+      font-weight:600;
+      margin:10px 0;
+    }
+    .order-card{
+      background:#fff;
+      border-radius:14px;
+      padding:12px;
+      margin-bottom:12px;
+      box-shadow:0 6px 16px rgba(0,0,0,.08);
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      font-size:14px;
+      margin-bottom:4px;
+    }
+    .items{
+      font-size:13px;
+      color:#555;
+      margin:6px 0;
+    }
+    button{
+      border:none;
+      padding:10px;
+      width:100%;
+      border-radius:10px;
+      font-size:14px;
+      margin-top:6px;
+      cursor:pointer;
+    }
+    .btn-prep{background:#2196f3;color:#fff}
+    .btn-ready{background:#4caf50;color:#fff}
+    .status{
+      font-size:12px;
+      font-weight:600;
+      padding:4px 10px;
+      border-radius:20px;
+      display:inline-block;
+    }
+    .pending{background:#fff3cd;color:#ff9800}
+    .preparing{background:#e3f2fd;color:#2196f3}
+    .ready{background:#e8f5e9;color:#4caf50}
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <div>🍳 Kitchen</div>
+  <button onclick="logout()" style="background:#fff;color:#e23744">Logout</button>
+</div>
+
+<div class="container">
+
+  <div class="section-title">🆕 New Orders</div>
+  <div id="newOrders"></div>
+
+  <div class="section-title">👨‍🍳 Preparing</div>
+  <div id="preparingOrders"></div>
+
+  <div class="section-title">✅ Ready</div>
+  <div id="readyOrders"></div>
+
+</div>
+
+<audio id="orderSound" src="order.mp3" preload="auto"></audio>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore, collection, onSnapshot,
+  doc, updateDoc, getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyCgaZ9DqGuszvycCRuJceNvg7G86OTc9oU",
+  authDomain:"restaurant-55333.firebaseapp.com",
+  projectId:"restaurant-55333"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+
+const newDiv=document.getElementById("newOrders");
+const prepDiv=document.getElementById("preparingOrders");
+const readyDiv=document.getElementById("readyOrders");
+const sound=document.getElementById("orderSound");
+
+let firstLoad=true;
+
+/* AUTH + ROLE */
+onAuthStateChanged(auth,async u=>{
+  if(!u){location.replace("login.html");return}
+  const s=await getDoc(doc(db,"users",u.uid));
+  if(!s.exists()||!["admin","kitchen"].includes(s.data().role)){
+    alert("Access denied"); signOut(auth); return;
+  }
+  loadOrders();
+});
+
+/* LOAD ORDERS */
+function loadOrders(){
+  onSnapshot(collection(db,"orders"),snap=>{
+    newDiv.innerHTML=prepDiv.innerHTML=readyDiv.innerHTML="";
+
+    if(!firstLoad){
+      snap.docChanges().forEach(c=>{
+        if(c.type==="added") sound.play().catch(()=>{});
+      });
+    }
+    firstLoad=false;
+
+    snap.forEach(d=>{
+      const o=d.data();
+      const items=o.items.map(i=>i.name).join(", ");
+
+      const card=`
+        <div class="order-card">
+          <div class="row"><b>${o.customerName}</b><span class="status ${o.status}">${o.status}</span></div>
+          <div class="row">Table ${o.tableNumber}</div>
+          <div class="items">${items}</div>
+          ${
+            o.status==="pending"
+            ? `<button class="btn-prep" onclick="setStatus('${d.id}','preparing',10)">Start Preparing</button>`
+            : o.status==="preparing"
+            ? `<button class="btn-ready" onclick="setStatus('${d.id}','ready',0)">Mark Ready</button>`
+            : ``
+          }
+        </div>`;
+
+      if(o.status==="pending") newDiv.innerHTML+=card;
+      if(o.status==="preparing") prepDiv.innerHTML+=card;
+      if(o.status==="ready") readyDiv.innerHTML+=card;
+    });
+  });
+}
+
+window.setStatus=async(id,status,time)=>{
+  await updateDoc(doc(db,"orders",id),{status,readyTime:time});
+};
+
+window.logout=()=>signOut(auth).then(()=>location.replace("login.html"));
+</script>
+
+</body>
+</html>
